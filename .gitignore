@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Railway/IDE
+.env
+.env.*
+*.sqlite3
+*.db
+
+# System
+.DS_Store
+*.log
+
+# Other
+telegram-scraper/
