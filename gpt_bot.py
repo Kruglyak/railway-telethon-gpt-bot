@@ -7,8 +7,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 import openai
-
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
 from models import MessageLog  # Модель сообщений из вашей базы
 
 # --- Конфиг из переменных окружения ---
@@ -16,6 +14,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 openai.api_key = OPENAI_API_KEY
 
 # --- SQLAlchemy setup ---
