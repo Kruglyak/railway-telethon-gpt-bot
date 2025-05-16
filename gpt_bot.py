@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select
+from sqlalchemy import select, text
 import openai
 from models import MessageLog  # Модель сообщений из вашей базы
 
@@ -67,7 +67,7 @@ async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 3. Выполнить SQL-запрос
     try:
         async with AsyncSessionLocal() as session:
-            result = await session.execute(sql_query)
+            result = await session.execute(text(sql_query))
             rows = result.fetchall()
             # Универсально: если row — tuple, ищем text в каждом
             texts = []
