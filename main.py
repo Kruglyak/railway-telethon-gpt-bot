@@ -117,7 +117,7 @@ async def handle_all(event):
         sender_first_name=sender_first_name,
         sender_last_name=sender_last_name,
         message_id=event.message.id,
-        date=event.message.date,
+        date=event.message.date.replace(tzinfo=None) if event.message.date and event.message.date.tzinfo else event.message.date,
         text=content,
         raw_json=json.dumps(event.message.to_dict(), ensure_ascii=False, default=lambda o: o.isoformat() if isinstance(o, datetime) else str(o))
     )
