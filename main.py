@@ -119,7 +119,7 @@ async def handle_all(event):
         message_id=event.message.id,
         date=event.message.date,
         text=content,
-        raw_json=json.dumps(event.message.to_dict(), ensure_ascii=False)
+        raw_json=json.dumps(event.message.to_dict(), ensure_ascii=False, default=lambda o: o.isoformat() if isinstance(o, datetime) else str(o))
     )
     try:
         async with AsyncSessionLocal() as session:
