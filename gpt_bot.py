@@ -28,24 +28,66 @@ AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSes
 
 async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_question = update.message.text
-    # 1. Поиск релевантных сообщений в БД
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(MessageLog).where(MessageLog.text.ilike(f"%{user_question}%")).limit(5)
-        )
-        found = result.scalars().all()
-        context_text = "\n".join([msg.text for msg in found if msg.text])
 
-    # 2. Формируем prompt и отправляем в OpenAI
-    prompt = f"История чата:\n{context_text}\n\nВопрос: {user_question}\nОтветь максимально полезно:"
-    response = client.chat.completions.create(
+    # 1. GPT формирует SQL SELECT-запрос
+    sql_prompt = (
+        "Ты — помощник, который пишет SQL-запросы к таблице messages.\n"
+        "Структура таблицы:\n"
+        "id, direction, chat_id, chat_title, chat_type, sender_id, sender_username, sender_first_name, sender_last_name, message_id, date, text, raw_json\n"
+        f"Пользователь просит: {user_question}\n"
+        "Напиши только SQL-запрос (только SELECT, без объяснений):"
+    )
+    sql_response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": sql_prompt}],
+        max_tokens=200,
+    )
+    sql_query = sql_response.choices[0].message.content.strip().split(';')[0]
+
+    # 2. Проверка безопасности
+    if not sql_query.lower().startswith("select"):
+        await update.message.reply_text("Ошибка: GPT сгенерировал не SELECT запрос.\n\n" + sql_query)
+        return
+
+    # 3. Выполнить SQL-запрос
+    try:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(sql_query)
+            rows = result.fetchall()
+            # Универсально: если row — tuple, ищем text в каждом
+            texts = []
+            for row in rows:
+                if hasattr(row, 'text'):
+                    texts.append(row.text)
+                elif isinstance(row, tuple) and len(row) > 0:
+                    # ищем поле text по имени
+                    if hasattr(row[0], 'text'):
+                        texts.append(row[0].text)
+                    elif 'text' in row._fields:
+                        texts.append(getattr(row, 'text'))
+                    elif isinstance(row[0], str):
+                        texts.append(row[0])
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка выполнения SQL-запроса: {e}\n\n{sql_query}")
+        return
+
+    if not texts:
+        await update.message.reply_text("Сообщения не найдены.")
+        return
+
+    # 4. GPT делает саммари (ограничим до 30 сообщений)
+    text_for_summary = "\n".join(texts[:30])
+    summary_prompt = (
+        f"Вот сообщения:\n{text_for_summary}\n\nСделай краткое саммари на русском."
+    )
+    summary_response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": summary_prompt}],
         max_tokens=300,
     )
-    answer = response.choices[0].message.content
+    summary = summary_response.choices[0].message.content
 
-    await update.message.reply_text(answer)
+    await update.message.reply_text(summary)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
