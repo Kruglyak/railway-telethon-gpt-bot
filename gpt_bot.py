@@ -26,6 +26,20 @@ elif DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
 engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
+import re
+
+def extract_sql_query(gpt_response: str) -> str:
+    # Удаляем markdown-блоки
+    sql = re.sub(r"^```sql\s*|```$", "", gpt_response.strip(), flags=re.IGNORECASE | re.MULTILINE)
+    # Удаляем все строки, начинающиеся с комментариев
+    lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
+    # Удаляем пустые строки
+    sql = "\n".join([line for line in lines if line.strip()])
+    # Оставляем только первую инструкцию (до первого ;)
+    sql = sql.split(";")[0]
+    # Удаляем leading/trailing пробелы
+    return sql.strip()
+
 async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_question = update.message.text
 
@@ -42,11 +56,12 @@ async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         messages=[{"role": "user", "content": sql_prompt}],
         max_tokens=200,
     )
-    sql_query = sql_response.choices[0].message.content.strip().split(';')[0]
+    sql_raw = sql_response.choices[0].message.content
+    sql_query = extract_sql_query(sql_raw)
 
     # 2. Проверка безопасности
-    if not sql_query.lower().startswith("select"):
-        await update.message.reply_text("Ошибка: GPT сгенерировал не SELECT запрос.\n\n" + sql_query)
+    if not sql_query.lower().lstrip().startswith("select"):
+        await update.message.reply_text(f"Ошибка: GPT сгенерировал не SELECT запрос.\n\n{sql_query}")
         return
 
     # 3. Выполнить SQL-запрос
