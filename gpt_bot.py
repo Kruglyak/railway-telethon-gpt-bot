@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 import openai
+
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 from models import MessageLog  # Модель сообщений из вашей базы
 
 # --- Конфиг из переменных окружения ---
@@ -37,12 +39,12 @@ async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 2. Формируем prompt и отправляем в OpenAI
     prompt = f"История чата:\n{context_text}\n\nВопрос: {user_question}\nОтветь максимально полезно:"
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=300,
     )
-    answer = response.choices[0].message["content"]
+    answer = response.choices[0].message.content
 
     await update.message.reply_text(answer)
 
