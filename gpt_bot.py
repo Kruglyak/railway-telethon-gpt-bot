@@ -33,7 +33,7 @@ async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 2. Формируем prompt и отправляем в OpenAI
     prompt = f"История чата:\n{context_text}\n\nВопрос: {user_question}\nОтветь максимально полезно:"
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=300,
     )
